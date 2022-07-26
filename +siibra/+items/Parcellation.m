@@ -15,6 +15,7 @@ classdef Parcellation < handle
             parcellation.Name = parcellation_json.name;
             parcellation.Atlas = atlas;
             parcellation.Modality = parcellation_json.modality;
+
             if ~ isempty(parcellation_json.infos)
                 parcellation.Desciption = parcellation_json.infos(1).description;
             end
@@ -36,8 +37,14 @@ classdef Parcellation < handle
             
             % store graph
             parcellation.RegionTree = siibra.items.Parcellation.createParcellationTree(parcellation, regions);
-            
-            %parcellation.Spaces = table(string({spaces_subset.Name}).', spaces_subset.', 'VariableNames', {'Name', 'Space'});
+        end
+
+        function map = parcellationMap(obj, spaceName)
+            for idx = 1:numel(obj.Spaces)
+                if obj.Spaces(idx).Name == spaceName
+                    map = siibra.items.maps.ParcellationMap(obj, obj.Spaces(idx));
+                end
+            end
         end
        
         function region_names = findRegion(obj, region_name_query)
@@ -63,43 +70,6 @@ classdef Parcellation < handle
             assert(length(parents) == 1, "Expect just one parent in a tree structure");
             parentId = parents(1);
             parent_region = obj.RegionTree.Nodes.Region(parentId);
-        end
-        function results = assign(obj, point)
-            spaceIndex = find(strcmp([obj.Spaces.Name], point.Space.Name));
-            assert(~isempty(spaceIndex), "Space of point is not supported by this parcellation!");
-            template = obj.Spaces(spaceIndex).Template;
-            template_output_view = template.getOutputView();
-            [voxelPositionOfPointX, voxelPositionOfPointY, voxelPositionOfPointZ]  = template_output_view.worldToIntrinsic(point.Position(1), point.Position(2), point.Position(3));
-            voxelPositionOfPointX = round(voxelPositionOfPointX)
-            voxelPositionOfPointY = round(voxelPositionOfPointY)
-            voxelPositionOfPointZ = round(voxelPositionOfPointZ)
-            % first pass to find out how many regions in this parcellation 
-            % support this space
-            nRegions = 0;
-            regionMask = zeros(length(obj.RegionTree.Nodes.Region), 'logical');
-            for i = 1:length(obj.RegionTree.Nodes.Region)
-                region = obj.RegionTree.Nodes.Region(i);
-                if any(strcmp([region.Spaces.Name], point.Space.Name))
-                    nRegions = nRegions + 1;
-                    regionMask(i) = true;
-                end  
-            end
-
-            completeMap = zeros([template.Size, nRegions]);
-            regionIndex = 1;
-            for i = 1:length(obj.RegionTree.Nodes.Region)
-                region = obj.RegionTree.Nodes.Region(i);
-                if any(strcmp([region.Spaces.Name], point.Space.Name))
-                    pmap = region.probabilityMap(point.Space.Name);
-                    completeMap(:, :, :, regionIndex) = pmap.Map;
-                    regionIndex = regionIndex + 1;
-                end
-            end
-            
-            regionProbabilities = completeMap(voxelPositionOfPointX, voxelPositionOfPointY, voxelPositionOfPointZ, :);
-             % regionsSupportingSpace = obj.RegionTree.Nodes.Region(regionMask);
-            relevantRegions = regionProbabilities > 0;
-            results = regionProbabilities(relevantRegions);
         end
     end
     

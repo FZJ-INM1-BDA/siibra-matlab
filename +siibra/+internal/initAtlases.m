@@ -5,6 +5,7 @@ end
     cached_file_name = '+siibra/cache/atlases.mat';
     if clear_cache || ~isfile(cached_file_name)
         apiEndpoint = "https://siibra-api-latest.apps-dev.hbp.eu/v1_0/";
+        %apiEndpoint = "https://siibra-api-latest.apps-dev.hbp.eu/v2_0/";
         options = weboptions;
         options.Timeout = 30;
         atlases_json = webread(apiEndpoint + "atlases");

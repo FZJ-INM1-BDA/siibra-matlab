@@ -1,8 +1,8 @@
 classdef Region < handle
     properties
         Name string
+        NormalizedName string
         Parcellation (1, :) siibra.items.Parcellation
-        ParcellationMaps (1, :) siibra.items.maps.ParcellationMap
         Spaces (1, :) siibra.items.Space
         Parent (1, 1) % Region
         Children (1, :) % Region
@@ -11,9 +11,7 @@ classdef Region < handle
         function region = Region(name, parcellation, dataset_specs)
             region.Name = name;
             region.Parcellation = parcellation;
-
-            parcellationMaps = siibra.items.maps.ParcellationMap.empty;
-
+            spaces = siibra.items.Space.empty;
             % parse dataset_specs for this region
             if ~isempty(dataset_specs)
                 for i = 1:numel(dataset_specs)
@@ -26,32 +24,23 @@ classdef Region < handle
                         for spaceIndex = 1:numel(parcellation.Spaces)
                              space = parcellation.Spaces(spaceIndex);
                              if specs.space_id == space.Id
-                                parcellationMaps(end +1) = siibra.items.maps.mapFactory( ...
-                                region, ...
-                                space, ...
-                                specs.url, ...
-                                specs.map_type ...
-                                );
+                                spaces(end + 1) = space;
+                                
                              end
                         end
                     end
                 end
             end
-
-            region.ParcellationMaps = parcellationMaps;
+            region.Spaces = spaces;
         end
-
-        function spaces = get.Spaces(obj)
-            if isempty(obj.ParcellationMaps)
-                spaces = siibra.items.Space.empty;
-            else
-                spaces = [obj.ParcellationMaps.Space];
-            end
+        function normalizedRegionName = get.NormalizedName(obj)
+            normalizedRegionName = strrep(obj.Name, " ", "");
+            normalizedRegionName = strrep(normalizedRegionName, "/", "-");
         end
         function space = space(obj, spaceName)
             spaceNames = {obj.Spaces.Name};
             spaceIndex = siibra.internal.fuzzyMatching(spaceName, spaceNames);
-            space = obj.ParcellationMaps(spaceIndex).Space;
+            space = obj.Spaces(spaceIndex);
         end
         function children = get.Children(obj)
             children = obj.Parcellation.getChildRegions(obj.Name);
@@ -60,28 +49,12 @@ classdef Region < handle
             parent = obj.Parcellation.getParentRegion(obj.Name);
         end
         function map = continuousMap(obj, spaceName)
-            map = obj.parcellationMapForSpace(spaceName);
-            if ~isa(map, 'siibra.items.maps.ContinuousMap')
-                error("Region has no continuous map");
-            end
+            space = obj.space(spaceName);
+            map = siibra.items.maps.ContinuousRegionMap(obj, space);
         end
-        function map = labeledMap(obj, spaceName)
-            map = obj.parcellationMapForSpace(spaceName);
-            if ~isa(map, 'siibra.items.maps.LabeledMap')
-                error("Region has no labeled map");
-            end
-        end
-        function map = parcellationMapForSpace(obj, spaceName)
-            found_space = false;
-            for i = 1:numel(obj.ParcellationMaps)
-                if strcmp(obj.ParcellationMaps(i).Space.Name, spaceName)
-                    found_space = true;
-                    map = obj.ParcellationMaps(i);
-                end
-            end
-            if ~found_space
-                error("Could not find probability map for this space!");
-            end
+        function mask = labelledMap(obj, spaceName)
+            space = obj.space(spaceName);
+            mask = siibra.items.maps.LabelledRegionMap(obj, space);
         end
     end
 end
